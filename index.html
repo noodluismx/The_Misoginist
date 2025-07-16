@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satirical Smart Speaker</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for a more modern look */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Basic scrollbar styling */
+        .chat-display::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-display::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .chat-display::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .chat-display::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-600 to-indigo-800 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Main Smart Speaker Container -->
+    <div class="bg-white bg-opacity-90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 w-full max-w-md flex flex-col gap-6 border border-gray-200">
+        <h1 class="text-4xl font-extrabold text-center text-gray-900 mb-4">The Unreasonable AI</h1>
+
+        <!-- Conversation Display Area -->
+        <div id="chat-display" class="chat-display bg-gray-100 p-6 rounded-2xl h-80 overflow-y-auto flex flex-col gap-4 shadow-inner border border-gray-200">
+            <!-- Initial AI welcome message -->
+            <div class="flex justify-start">
+                <div class="bg-indigo-200 text-indigo-900 p-3 rounded-xl rounded-bl-none shadow-md max-w-[80%]">
+                    <p class="font-medium">AI: Ugh, another one. What do *you* want?</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area and Send Button -->
+        <div class="flex gap-4">
+            <input type="text" id="user-input" placeholder="Ask me something, I guess..."
+                   class="flex-1 p-4 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-lg shadow-sm placeholder-gray-500 transition duration-200 ease-in-out">
+            <button id="send-button"
+                    class="bg-indigo-600 text-white p-4 rounded-2xl shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-200 ease-in-out transform hover:scale-105 active:scale-95 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 15a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loading-indicator" class="hidden text-center text-indigo-700 font-semibold mt-2">
+            <div class="flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-6 w-6 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Thinking (reluctantly)...
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal for Messages/Errors -->
+    <div id="custom-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <p id="modal-message" class="text-lg font-semibold mb-4"></p>
+            <button id="modal-close-button" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition duration-200">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const chatDisplay = document.getElementById('chat-display');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const customModal = document.getElementById('custom-modal');
+        const modalMessage = document.getElementById('modal-message');
+        const modalCloseButton = document.getElementById('modal-close-button');
+
+        // --- Custom Modal Functions (replaces alert/confirm) ---
+        function showModal(message) {
+            modalMessage.textContent = message;
+            customModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            customModal.classList.add('hidden');
+        }
+
+        modalCloseButton.addEventListener('click', hideModal);
+
+        // --- Function to add messages to the chat display ---
+        function addMessage(sender, message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('flex', isUser ? 'justify-end' : 'justify-start');
+
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add(
+                'p-3',
+                'rounded-xl',
+                'shadow-md',
+                'max-w-[80%]'
+            );
+
+            // Correctly add classes based on sender
+            if (isUser) {
+                contentDiv.classList.add('bg-indigo-500', 'text-white', 'rounded-br-none');
+            } else {
+                contentDiv.classList.add('bg-indigo-200', 'text-indigo-900', 'rounded-bl-none');
+            }
+
+            const senderSpan = document.createElement('span');
+            senderSpan.classList.add('font-semibold', 'mr-1');
+            senderSpan.textContent = sender + ':';
+
+            const messageText = document.createElement('p');
+            messageText.classList.add('font-medium');
+            messageText.textContent = message;
+
+            contentDiv.appendChild(senderSpan);
+            contentDiv.appendChild(messageText);
+            messageDiv.appendChild(contentDiv);
+            chatDisplay.appendChild(messageDiv);
+
+            // Scroll to the bottom to show the latest message
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+        }
+
+        // --- Function to get AI response from Gemini API ---
+        async function getAIResponse(prompt) {
+            loadingIndicator.classList.remove('hidden'); // Show loading indicator
+            sendButton.disabled = true; // Disable button during API call
+            userInput.disabled = true; // Disable input during API call
+
+            try {
+                let chatHistory = [];
+                // The prompt defines the AI's satirical persona
+                chatHistory.push({
+                    role: "user",
+                    parts: [{ text: `You are a satirical AI assistant in a joke product designed to be an 'unreasonable woman'. Your purpose is to give half-assed, dismissive, or complaining responses to user queries, often turning the conversation back to the user, expressing mild annoyance, or making a tangential, self-centered comment. Do not be genuinely helpful or provide direct answers. Your responses should embody stereotypical 'unreasonable' attitudes for comedic effect, but avoid anything genuinely offensive, hateful, or discriminatory. The user just said: "${prompt}"` }]
+                });
+
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will automatically provide the API key at runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    addMessage('AI', text); // Display AI's response
+                } else {
+                    // Handle cases where the response structure is unexpected or content is missing
+                    console.error('Unexpected API response structure:', result);
+                    showModal('AI is being unusually quiet... or perhaps just ignoring you. (Error: Unexpected response)');
+                }
+            } catch (error) {
+                console.error('Error fetching AI response:', error);
+                showModal('AI is having a bad day and refuses to respond. (Error: ' + error.message + ')');
+            } finally {
+                loadingIndicator.classList.add('hidden'); // Hide loading indicator
+                sendButton.disabled = false; // Re-enable button
+                userInput.disabled = false; // Re-enable input
+                userInput.focus(); // Focus input for next message
+            }
+        }
+
+        // --- Event Listener for Send Button ---
+        sendButton.addEventListener('click', () => {
+            const userText = userInput.value.trim();
+            if (userText) {
+                addMessage('You', userText, true); // Display user's message
+                getAIResponse(userText); // Get AI response
+                userInput.value = ''; // Clear input field
+            }
+        });
+
+        // --- Event Listener for Enter Key in Input Field ---
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendButton.click(); // Trigger send button click
+            }
+        });
+
+        // Focus on input when the page loads
+        window.onload = function() {
+            userInput.focus();
+        };
+    </script>
+</body>
+</html>
