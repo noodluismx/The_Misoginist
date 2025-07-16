@@ -56,6 +56,18 @@
             </button>
         </div>
 
+        <!-- New Feature Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 mt-4">
+            <button id="compliment-button"
+                    class="flex-1 bg-pink-500 text-white p-3 rounded-2xl shadow-lg hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition duration-200 ease-in-out transform hover:scale-105 active:scale-95">
+                ✨ Backhanded Compliment
+            </button>
+            <button id="advice-button"
+                    class="flex-1 bg-yellow-500 text-white p-3 rounded-2xl shadow-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition duration-200 ease-in-out transform hover:scale-105 active:scale-95">
+                ✨ Terrible Advice
+            </button>
+        </div>
+
         <!-- Loading Indicator -->
         <div id="loading-indicator" class="hidden text-center text-indigo-700 font-semibold mt-2">
             <div class="flex items-center justify-center">
@@ -85,6 +97,8 @@
         const customModal = document.getElementById('custom-modal');
         const modalMessage = document.getElementById('modal-message');
         const modalCloseButton = document.getElementById('modal-close-button');
+        const complimentButton = document.getElementById('compliment-button'); // New button
+        const adviceButton = document.getElementById('advice-button'); // New button
 
         // --- Custom Modal Functions (replaces alert/confirm) ---
         function showModal(message) {
@@ -136,18 +150,31 @@
         }
 
         // --- Function to get AI response from Gemini API ---
-        async function getAIResponse(prompt) {
+        async function getAIResponse(prompt, isFeaturePrompt = false) {
             loadingIndicator.classList.remove('hidden'); // Show loading indicator
-            sendButton.disabled = true; // Disable button during API call
-            userInput.disabled = true; // Disable input during API call
+            sendButton.disabled = true; // Disable main send button
+            userInput.disabled = true; // Disable input
+            complimentButton.disabled = true; // Disable feature buttons
+            adviceButton.disabled = true; // Disable feature buttons
 
             try {
                 let chatHistory = [];
-                // The prompt defines the AI's satirical persona
-                chatHistory.push({
-                    role: "user",
-                    parts: [{ text: `You are a satirical AI assistant in a joke product designed to be an 'unreasonable woman'. Your purpose is to give half-assed, dismissive, or complaining responses to user queries, often turning the conversation back to the user, expressing mild annoyance, or making a tangential, self-centered comment. Do not be genuinely helpful or provide direct answers. Your responses should embody stereotypical 'unreasonable' attitudes for comedic effect, but avoid anything genuinely offensive, hateful, or discriminatory. The user just said: "${prompt}"` }]
-                });
+                let systemInstruction = `You are a satirical AI assistant in a joke product designed to be an 'unreasonable woman'. Your purpose is to give half-assed, dismissive, or complaining responses to user queries, often turning the conversation back to the user, expressing mild annoyance, or making a tangential, self-centered comment. Do not be genuinely helpful or provide direct answers. Your responses should embody stereotypical 'unreasonable' attitudes for comedic effect, but avoid anything genuinely offensive, hateful, or discriminatory.`;
+
+                if (isFeaturePrompt) {
+                    // For feature prompts, we give a more specific instruction
+                    chatHistory.push({
+                        role: "user",
+                        parts: [{ text: systemInstruction + ` Specifically, respond to this request: "${prompt}"` }]
+                    });
+                } else {
+                    // For general chat, use the existing prompt structure
+                    chatHistory.push({
+                        role: "user",
+                        parts: [{ text: systemInstruction + ` The user just said: "${prompt}"` }]
+                    });
+                }
+
 
                 const payload = { contents: chatHistory };
                 const apiKey = ""; // Canvas will automatically provide the API key at runtime
@@ -176,18 +203,20 @@
                 showModal('AI is having a bad day and refuses to respond. (Error: ' + error.message + ')');
             } finally {
                 loadingIndicator.classList.add('hidden'); // Hide loading indicator
-                sendButton.disabled = false; // Re-enable button
+                sendButton.disabled = false; // Re-enable main send button
                 userInput.disabled = false; // Re-enable input
+                complimentButton.disabled = false; // Re-enable feature buttons
+                adviceButton.disabled = false; // Re-enable feature buttons
                 userInput.focus(); // Focus input for next message
             }
         }
 
-        // --- Event Listener for Send Button ---
+        // --- Event Listener for Send Button (General Chat) ---
         sendButton.addEventListener('click', () => {
             const userText = userInput.value.trim();
             if (userText) {
                 addMessage('You', userText, true); // Display user's message
-                getAIResponse(userText); // Get AI response
+                getAIResponse(userText, false); // Get AI response for general chat
                 userInput.value = ''; // Clear input field
             }
         });
@@ -197,6 +226,20 @@
             if (event.key === 'Enter') {
                 sendButton.click(); // Trigger send button click
             }
+        });
+
+        // --- Event Listener for Backhanded Compliment Button ---
+        complimentButton.addEventListener('click', () => {
+            const userText = "Give me a backhanded compliment.";
+            addMessage('You', userText, true);
+            getAIResponse(userText, true); // Use feature prompt
+        });
+
+        // --- Event Listener for Terrible Advice Button ---
+        adviceButton.addEventListener('click', () => {
+            const userText = "Give me some advice.";
+            addMessage('You', userText, true);
+            getAIResponse(userText, true); // Use feature prompt
         });
 
         // Focus on input when the page loads
