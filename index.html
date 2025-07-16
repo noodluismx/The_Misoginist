@@ -97,8 +97,8 @@
         const customModal = document.getElementById('custom-modal');
         const modalMessage = document.getElementById('modal-message');
         const modalCloseButton = document.getElementById('modal-close-button');
-        const complimentButton = document.getElementById('compliment-button'); // New button
-        const adviceButton = document.getElementById('advice-button'); // New button
+        const complimentButton = document.getElementById('compliment-button');
+        const adviceButton = document.getElementById('advice-button');
 
         // --- Custom Modal Functions (replaces alert/confirm) ---
         function showModal(message) {
@@ -125,7 +125,6 @@
                 'max-w-[80%]'
             );
 
-            // Correctly add classes based on sender
             if (isUser) {
                 contentDiv.classList.add('bg-indigo-500', 'text-white', 'rounded-br-none');
             } else {
@@ -145,69 +144,52 @@
             messageDiv.appendChild(contentDiv);
             chatDisplay.appendChild(messageDiv);
 
-            // Scroll to the bottom to show the latest message
             chatDisplay.scrollTop = chatDisplay.scrollHeight;
         }
 
-        // --- Function to get AI response from Gemini API ---
+        // --- Function to get AI response from Gemini API via Netlify Function ---
         async function getAIResponse(prompt, isFeaturePrompt = false) {
-            loadingIndicator.classList.remove('hidden'); // Show loading indicator
-            sendButton.disabled = true; // Disable main send button
-            userInput.disabled = true; // Disable input
-            complimentButton.disabled = true; // Disable feature buttons
-            adviceButton.disabled = true; // Disable feature buttons
+            loadingIndicator.classList.remove('hidden');
+            sendButton.disabled = true;
+            userInput.disabled = true;
+            complimentButton.disabled = true;
+            adviceButton.disabled = true;
 
             try {
-                let chatHistory = [];
                 let systemInstruction = `You are a satirical AI assistant in a joke product designed to be an 'unreasonable woman'. Your purpose is to give half-assed, dismissive, or complaining responses to user queries, often turning the conversation back to the user, expressing mild annoyance, or making a tangential, self-centered comment. Do not be genuinely helpful or provide direct answers. Your responses should embody stereotypical 'unreasonable' attitudes for comedic effect, but avoid anything genuinely offensive, hateful, or discriminatory.`;
 
+                let userPrompt;
                 if (isFeaturePrompt) {
-                    // For feature prompts, we give a more specific instruction
-                    chatHistory.push({
-                        role: "user",
-                        parts: [{ text: systemInstruction + ` Specifically, respond to this request: "${prompt}"` }]
-                    });
+                    userPrompt = systemInstruction + ` Specifically, respond to this request: "${prompt}"`;
                 } else {
-                    // For general chat, use the existing prompt structure
-                    chatHistory.push({
-                        role: "user",
-                        parts: [{ text: systemInstruction + ` The user just said: "${prompt}"` }]
-                    });
+                    userPrompt = systemInstruction + ` The user just said: "${prompt}"`;
                 }
 
-
-                const payload = { contents: chatHistory };
-                const apiKey = ""; // Canvas will automatically provide the API key at runtime
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                const response = await fetch(apiUrl, {
+                // Call the Netlify Function instead of directly calling Gemini API
+                const response = await fetch('/.netlify/functions/gemini-proxy', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({ prompt: userPrompt }) // Send the full prompt to the function
                 });
 
                 const result = await response.json();
 
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const text = result.candidates[0].content.parts[0].text;
-                    addMessage('AI', text); // Display AI's response
+                if (response.ok && result.text) { // Check for successful response from function
+                    addMessage('AI', result.text);
                 } else {
-                    // Handle cases where the response structure is unexpected or content is missing
-                    console.error('Unexpected API response structure:', result);
-                    showModal('AI is being unusually quiet... or perhaps just ignoring you. (Error: Unexpected response)');
+                    console.error('Error from Netlify Function:', result);
+                    showModal('AI is being unusually quiet... or perhaps just ignoring you. (Error: ' + (result.error || 'Unknown error from proxy') + ')');
                 }
             } catch (error) {
                 console.error('Error fetching AI response:', error);
                 showModal('AI is having a bad day and refuses to respond. (Error: ' + error.message + ')');
             } finally {
-                loadingIndicator.classList.add('hidden'); // Hide loading indicator
-                sendButton.disabled = false; // Re-enable main send button
-                userInput.disabled = false; // Re-enable input
-                complimentButton.disabled = false; // Re-enable feature buttons
-                adviceButton.disabled = false; // Re-enable feature buttons
-                userInput.focus(); // Focus input for next message
+                loadingIndicator.classList.add('hidden');
+                sendButton.disabled = false;
+                userInput.disabled = false;
+                complimentButton.disabled = false;
+                adviceButton.disabled = false;
+                userInput.focus();
             }
         }
 
@@ -215,16 +197,16 @@
         sendButton.addEventListener('click', () => {
             const userText = userInput.value.trim();
             if (userText) {
-                addMessage('You', userText, true); // Display user's message
-                getAIResponse(userText, false); // Get AI response for general chat
-                userInput.value = ''; // Clear input field
+                addMessage('You', userText, true);
+                getAIResponse(userText, false);
+                userInput.value = '';
             }
         });
 
         // --- Event Listener for Enter Key in Input Field ---
         userInput.addEventListener('keypress', (event) => {
             if (event.key === 'Enter') {
-                sendButton.click(); // Trigger send button click
+                sendButton.click();
             }
         });
 
@@ -232,14 +214,14 @@
         complimentButton.addEventListener('click', () => {
             const userText = "Give me a backhanded compliment.";
             addMessage('You', userText, true);
-            getAIResponse(userText, true); // Use feature prompt
+            getAIResponse(userText, true);
         });
 
         // --- Event Listener for Terrible Advice Button ---
         adviceButton.addEventListener('click', () => {
             const userText = "Give me some advice.";
             addMessage('You', userText, true);
-            getAIResponse(userText, true); // Use feature prompt
+            getAIResponse(userText, true);
         });
 
         // Focus on input when the page loads
