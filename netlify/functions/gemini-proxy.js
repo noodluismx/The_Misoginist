@@ -1,5 +1,6 @@
 // netlify/functions/gemini-proxy.js
 
+
 // This function acts as a proxy to securely call the Gemini API
 // It retrieves the API key from Netlify Environment Variables,
 // preventing it from being exposed on the client-side.
